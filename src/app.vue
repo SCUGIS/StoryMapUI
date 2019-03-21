@@ -389,6 +389,8 @@ import L1 from 'L1'
 import VueColor from 'vue-color'
 
 let marker, lmap, smap
+let storage = 'maps22'
+
 let defaultSlide = (id) => {
   return {
     id: id,
@@ -433,7 +435,7 @@ export default {
     }
 
     try {
-      let maps = JSON.parse(localStorage.getItem('maps'))
+      let maps = JSON.parse(localStorage.getItem(storage))
       if (maps.length > 0) {
         originData.maps = maps
       }
@@ -445,7 +447,7 @@ export default {
   updated () {
     try {
       let maps = this.maps.slice()
-      localStorage.setItem('maps', JSON.stringify(maps))
+      localStorage.setItem(storage, JSON.stringify(maps))
     } catch (err) {
       console.log(err)
     }
@@ -615,7 +617,7 @@ export default {
 
           // FIXME
           let maps = this.maps.slice()
-          localStorage.setItem('maps', JSON.stringify(maps))
+          localStorage.setItem(storage, JSON.stringify(maps))
         }
       }).addTo(lmap)
 
@@ -630,7 +632,7 @@ export default {
 
           // FIXME
           let maps = this.maps.slice()
-          localStorage.setItem('maps', JSON.stringify(maps))
+          localStorage.setItem(storage, JSON.stringify(maps))
         })
     },
     setStoryMap () {
