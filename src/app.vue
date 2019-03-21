@@ -17,7 +17,6 @@
       <v-btn
         color="info"
         @click="setPreview"
-        v-show="loginStatus"
         v-html="perviewBtn"
         dark
       >
@@ -34,7 +33,9 @@
         >
         </v-btn>
         <v-list>
-          <v-list-tile>
+          <v-list-tile
+            @click="listUI = true"
+          >
             <v-list-tile-title>My StoryMap</v-list-tile-title>
           </v-list-tile>
           <v-list-tile
@@ -63,11 +64,11 @@
           <v-navigation-drawer permanent width="250" class="slideList">
             <v-list two-line>
               <v-list-tile
-                v-for="(slide, index) in slides"
+                v-for="(slide, index) in maps[selected.map].slides"
                 :key="slide.id"
                 avatar
                 @click="selectSlide(index)"
-                :class="slide.class"
+                :class="selected.slide === index ? 'slide selected' : 'slide'"
               >
                 <v-list-tile-avatar>
                   <v-img
@@ -84,7 +85,7 @@
 
                 <v-list-tile-action
                   v-if="index !== 0"
-                  @click="selectDel(index)"
+                  @click="selectDel(index, 'Slide')"
                 >
                   <v-btn icon ripple>
                     <v-icon color="error lighten-1">clear</v-icon>
@@ -118,7 +119,7 @@
                     </span>
                     <v-card>
                       <v-img
-                        :src="slides[slideSelected].media"
+                        :src="maps[selected.map].slides[selected.slide].media"
                         aspect-ratio="2"
                         class="imgbg"
                       ></v-img>
@@ -131,7 +132,7 @@
                   <v-card-text>
                     <v-form>
                       <v-text-field
-                        v-model="slides[slideSelected].media"
+                        v-model="maps[selected.map].slides[selected.slide].media"
                         label="Media URL"
                       ></v-text-field>
                       <input type="file" id="uploadMedia" multiple="true" accept="image/*" style="display:none" @change="processFile($event, 'media')">
@@ -144,11 +145,11 @@
                         <v-icon right color="grey">cloud_upload</v-icon>
                       </v-btn>
                       <v-text-field
-                        v-model="slides[slideSelected].credit"
+                        v-model="maps[selected.map].slides[selected.slide].credit"
                         label="Credit"
                       ></v-text-field>
                       <v-text-field
-                        v-model="slides[slideSelected].caption"
+                        v-model="maps[selected.map].slides[selected.slide].caption"
                         label="Caption"
                       ></v-text-field>
                     </v-form>
@@ -160,11 +161,11 @@
                   <v-card-text>
                     <v-form>
                       <v-text-field
-                        v-model="slides[slideSelected].headline"
+                        v-model="maps[selected.map].slides[selected.slide].headline"
                         label="HEADLINE"
                       ></v-text-field>
                       <v-textarea
-                        v-model="slides[slideSelected].content"
+                        v-model="maps[selected.map].slides[selected.slide].content"
                         name="content"
                         label="Content"
                         hint="Hint text"
@@ -198,11 +199,38 @@
           </v-card>
         </v-dialog>
         <v-dialog
+          v-model="delMapMsg"
+          max-width="600"
+        >
+          <v-card>
+            <v-card-title class="title">Delete {{ maps[selected.map].slides[0].headline === '' ? '(untitled)' : maps[selected.map].slides[0].headline }} map?</v-card-title>
+
+            <v-card-actions>
+              <v-spacer></v-spacer>
+
+              <v-btn
+                color="primary darken-1"
+                flat="flat"
+                @click="delMapMsg = false"
+              >
+                No
+              </v-btn>
+
+              <v-btn
+                color="error darken-1"
+                @click="delMap"
+              >
+                Yes
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+        <v-dialog
           v-model="delSlideMsg"
           max-width="600"
         >
           <v-card>
-            <v-card-title class="title">Delete {{ slides[delSelected].headline === '' ? '(untitled)' : slides[delSelected].headline }} slide?</v-card-title>
+            <v-card-title class="title">Delete {{ maps[selected.map].slides[selected.slide].headline === '' ? '(untitled)' : maps[selected.map].slides[selected.slide].headline }} slide?</v-card-title>
 
             <v-card-actions>
               <v-spacer></v-spacer>
@@ -236,12 +264,12 @@
             <v-card-text>
               <v-form>
                 <v-text-field
-                  v-model="slides[slideSelected].color"
+                  v-model="maps[selected.map].slides[selected.slide].color"
                   label="Background Color"
                 ></v-text-field>
-                <chrome-picker :value="slides[slideSelected].color" @input="updateColor"></chrome-picker>
+                <chrome-picker :value="maps[selected.map].slides[selected.slide].color" @input="updateColor"></chrome-picker>
                 <v-text-field
-                  v-model="slides[slideSelected].background"
+                  v-model="maps[selected.map].slides[selected.slide].background"
                   label="Background Image"
                 ></v-text-field>
                 <input type="file" id="uploadBackground" multiple="true" accept="image/*" style="display:none" @change="processFile($event, 'background')">
@@ -260,7 +288,7 @@
             <v-card-text>
               <v-form>
                 <v-text-field
-                  v-model="slides[slideSelected].marker"
+                  v-model="maps[selected.map].slides[selected.slide].marker"
                   label="Marker Image"
                 ></v-text-field>
                 <input type="file" id="uploadMarker" multiple="true" accept="image/*" style="display:none" @change="processFile($event, 'marker')">
@@ -287,6 +315,69 @@
             </v-card-actions>
           </v-card>
         </v-dialog>
+        <v-dialog
+          v-model="listUI"
+          max-width="600"
+        >
+          <v-card>
+            <v-toolbar dark color="info">
+              <v-toolbar-title>My StoryMap</v-toolbar-title>
+            </v-toolbar>
+            <v-list two-line>
+              <v-list-tile
+                v-for="(map, index) in maps"
+                class="slide"
+                :key="index"
+                @click="selectMap(index)"
+                avatar
+              >
+                <v-list-tile-avatar>
+                  <v-img
+                    :src="map.slides[0].media"
+                    aspect-ratio="2"
+                    class="imgbg"
+                  ></v-img>
+                </v-list-tile-avatar>
+
+                <v-list-tile-content>
+                  <v-list-tile-title>{{ map.slides[0].headline === '' ? '(untitled)' : map.slides[0].headline }}</v-list-tile-title>
+                  <v-list-tile-sub-title>{{ map.slides[0].content }}</v-list-tile-sub-title>
+                </v-list-tile-content>
+
+                <v-list-tile-action
+                  v-if="index !== 0"
+                  @click="selectDel(index, 'Map')"
+                >
+                  <v-btn icon ripple>
+                    <v-icon color="error lighten-1">clear</v-icon>
+                  </v-btn>
+                </v-list-tile-action>
+              </v-list-tile>
+              <v-list-tile
+                @click="addMap"
+                class="slide"
+              >
+                <v-list-tile-content>
+                  <v-list-tile-title>Add Slide</v-list-tile-title>
+                </v-list-tile-content>
+
+                <v-list-tile-action>
+                  <v-icon color="success lighten-1">add_box</v-icon>
+                </v-list-tile-action>
+              </v-list-tile>
+            </v-list>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn
+                color="primary darken-1"
+                flat="flat"
+                @click="listUI = false"
+              >
+                Close
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
       </v-container>
     </v-content>
   </v-app>
@@ -298,6 +389,20 @@ import L1 from 'L1'
 import VueColor from 'vue-color'
 
 let marker, lmap, smap
+let defaultSlide = (id) => {
+  return {
+    id: id,
+    loc: [25.045898, -238.474045],
+    headline: '',
+    content: '',
+    media: '',
+    credit: '',
+    caption: '',
+    background: '',
+    marker: '',
+    color: '#FFFFFF'
+  }
+}
 
 export default {
   components: {
@@ -305,46 +410,32 @@ export default {
   },
   data () {
     let originData = {
-      slides: [
+      maps: [
         {
-          id: Math.random(),
-          headline: '',
-          content: '',
-          loc: [25.045898, -238.474045],
-          media: '',
-          credit: '',
-          caption: '',
-          background: '',
-          marker: '',
-          color: '#FFFFFF',
-          class: 'slide selected'
+          id: this.uuid(),
+          slides: [ defaultSlide(this.uuid()) ]
         }
       ],
       loginUI: false,
       optionUI: false,
+      listUI: false,
+      previewUI: false,
+      perviewBtn: 'preview',
       delSlideMsg: false,
       delMapMsg: false,
       loginStatus: null,
-      previewUI: false,
       username: 'username',
-      perviewBtn: 'preview',
-      delSelected: 0,
-      slideSelected: 0
+      selected: {
+        map: 0,
+        slide: 0,
+        del: 0
+      }
     }
 
     try {
-      let slides = JSON.parse(localStorage.getItem('slides'))
-
-      for (let i = 0; i < slides.length; i++) {
-        if (i === 0) {
-          slides[i].class = 'slide selected'
-        } else {
-          slides[i].class = 'slide'
-        }
-      }
-
-      if (slides.length > 0) {
-        originData.slides = slides
+      let maps = JSON.parse(localStorage.getItem('maps'))
+      if (maps.length > 0) {
+        originData.maps = maps
       }
     } catch (err) {
       console.log(err)
@@ -353,8 +444,8 @@ export default {
   },
   updated () {
     try {
-      let slides = this.slides.slice()
-      localStorage.setItem('slides', JSON.stringify(slides))
+      let maps = this.maps.slice()
+      localStorage.setItem('maps', JSON.stringify(maps))
     } catch (err) {
       console.log(err)
     }
@@ -367,10 +458,39 @@ export default {
     this.setMap()
   },
   methods: {
+    uuid () {
+      let d = Date.now()
+      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        d += performance.now()
+      }
+
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        let r = (d + Math.random() * 16) % 16 | 0
+        d = Math.floor(d / 16)
+
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
+      })
+    },
     publish () {
-      this.$http.post('/storymap/api/map', { map: JSON.stringify(this.slides) })
+      this.$http.post('/storymap/api/publish', { id: this.maps[this.selected.map].id })
         .then(res => {
-          window.open('/storymap/link/' + res.body.res.id)
+          if (res.body.status === 'ok') {
+            window.open('/storymap/link/' + res.body.id)
+          } else {
+            console.log(res)
+          }
+        }, err => {
+          console.log(err)
+        })
+    },
+    sync () {
+      this.$http.patch('/storymap/api/sync', { map: JSON.stringify(this.maps[this.selected.map]) })
+        .then(res => {
+          if (res.body.status === 'ok') {
+            console.log('synced')
+          } else {
+            console.log(res)
+          }
         }, err => {
           console.log(err)
         })
@@ -383,53 +503,76 @@ export default {
             this.loginStatus = token
             this.loginUI = false
             this.username = user.getBasicProfile().getName()
+            this.listUI = true
           }
         }, err => {
           console.log(err)
         })
     },
+    addMap () {
+      this.maps.push({
+        id: this.uuid(),
+        slides: [ defaultSlide(this.uuid()) ]
+      })
+    },
+    selectMap (index) {
+      this.selected.map = index
+      this.selected.slide = 0
+
+      lmap.setView(this.maps[index].slides[0].loc)
+      marker.setLatLng(this.maps[index].slides[0].loc)
+      this.listUI = false
+    },
+    delMap () {
+      if (this.selected.del !== 0) {
+        if (this.selected.del === this.maps.lenght - 1 ||
+            this.selected.del === this.selected.map) {
+          this.selectMap(this.selected.map - 1)
+        }
+        this.maps.splice(this.selected.map, 1)
+        this.selected.del = 0
+        this.delMapMsg = false
+      }
+    },
     addSlide () {
-      this.slides.push({
+      this.maps[this.selected.map].slides.push({
         id: Math.random(),
         headline: '',
         content: '',
-        loc: this.slides[this.slides.length - 1].loc,
+        loc: this.maps[this.selected.map].slides[this.maps[this.selected.map].slides.length - 1].loc,
         media: '',
         credit: '',
         caption: '',
         background: '',
         marker: '',
-        color: '#FFFFFF',
-        class: 'slide'
+        color: '#FFFFFF'
       })
     },
     selectSlide (index) {
-      this.slides[this.slideSelected].class = 'slide'
-      this.slides[index].class = 'slide selected'
-      this.slideSelected = index
+      this.selected.slide = index
 
-      lmap.setView(this.slides[index].loc)
-      marker.setLatLng(this.slides[index].loc)
+      lmap.setView(this.maps[this.selected.map].slides[index].loc)
+      marker.setLatLng(this.maps[this.selected.map].slides[index].loc)
     },
-    selectDel (index) {
+    selectDel (index, type) {
       if (index !== 0) {
-        this.delSelected = index
-        this.delSlideMsg = true
+        this.selected.del = index
+        this['del' + type + 'Msg'] = true
       }
     },
     delSlide () {
-      if (this.delSelected !== 0) {
-        if (this.delSelected === this.slides.lenght - 1 ||
-            this.delSelected === this.slideSelected) {
-          this.selectSlide(this.slideSelected - 1)
+      if (this.selected.del !== 0) {
+        if (this.selected.del === this.maps[this.selected.map].slides.lenght - 1 ||
+            this.selected.del === this.selected.slide) {
+          this.selectSlide(this.selected.slide - 1)
         }
-        this.slides.splice(this.delSelected, 1)
-        this.delSelected = 0
+        this.maps[this.selected.map].slides.splice(this.selected.map, 1)
+        this.selected.del = 0
         this.delSlideMsg = false
       }
     },
     updateColor (data) {
-      this.slides[this.slideSelected].color = data.hex
+      this.maps[this.selected.map].slides[this.selected.slide].color = data.hex
     },
     setPreview () {
       this.previewUI = !this.previewUI
@@ -449,7 +592,7 @@ export default {
         smap._el.menubar.remove()
         smap._el.storyslider.remove()
       }
-      lmap = L1.map('map').setView(this.slides[this.slideSelected].loc, 20)
+      lmap = L1.map('map').setView(this.maps[this.selected.map].slides[this.selected.slide].loc, 20)
 
       L1.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
         maxZoom: 18,
@@ -465,32 +608,36 @@ export default {
           let lat = loc.lat()
           let lng = loc.lng()
 
-          this.slides[this.slideSelected].loc = [lat, lng]
+          this.maps[this.selected.map].slides[this.selected.slide].loc = [lat, lng]
 
           lmap.panTo([lat, lng])
           marker.setLatLng([lat, lng])
-          let slides = this.slides.slice()
-          localStorage.setItem('slides', JSON.stringify(slides))
+
+          // FIXME
+          let maps = this.maps.slice()
+          localStorage.setItem('maps', JSON.stringify(maps))
         }
       }).addTo(lmap)
 
-      marker = L1.marker(this.slides[this.slideSelected].loc, { title: 'point', alt: 'point', draggable: true })
+      marker = L1.marker(this.maps[this.selected.map].slides[this.selected.slide].loc, { title: 'point', alt: 'point', draggable: true })
         .addTo(lmap).on('dragend', () => {
           let coord = String(marker.getLatLng()).split(', ')
           let lat = coord[0].split('(')[1]
           let lng = coord[1].split(')')[0]
 
-          this.slides[this.slideSelected].loc = [lat, lng]
+          this.maps[this.selected.map].slides[this.selected.slide].loc = [lat, lng]
           marker.bindPopup(lat + ', ' + lng)
-          let slides = this.slides.slice()
-          localStorage.setItem('slides', JSON.stringify(slides))
+
+          // FIXME
+          let maps = this.maps.slice()
+          localStorage.setItem('maps', JSON.stringify(maps))
         })
     },
     setStoryMap () {
       let slides = []
 
-      for (let i = 0; i < this.slides.length; i++) {
-        let s = this.slides[i]
+      for (let i = 0; i < this.maps[this.selected.map].slides.length; i++) {
+        let s = this.maps[this.selected.map].slides[i]
         let slide = {
           date: '',
           location: {
@@ -567,7 +714,7 @@ export default {
             }
           })
             .then(res => {
-              this.slides[this.slideSelected].background = res.body.data.link
+              this.maps[this.selected.map].slides[this.selected.slide].background = res.body.data.link
             }, err => {
               console.log(err)
             })
@@ -580,7 +727,7 @@ export default {
           })
             .then(res => {
               console.log(res.body.data.link)
-              this.slides[this.slideSelected].media = res.body.data.link
+              this.maps[this.selected.map].slides[this.selected.slide].media = res.body.data.link
             }, err => {
               console.log(err)
             })
@@ -592,7 +739,7 @@ export default {
             }
           })
             .then(res => {
-              this.slides[this.slideSelected].marker = res.body.data.link
+              this.maps[this.selected.slide].slides[this.selected.slide].marker = res.body.data.link
             }, err => {
               console.log(err)
             })
