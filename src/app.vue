@@ -389,14 +389,14 @@ import L1 from 'L1'
 import VueColor from 'vue-color'
 
 let marker, lmap, smap
-let storage = 'maps22'
+let storage = 'maps23'
 
 let defaultSlide = (id) => {
   return {
     id: id,
-    loc: [25.045898, -238.474045],
     headline: '',
     content: '',
+    loc: [25.045898, -238.474045],
     media: '',
     credit: '',
     caption: '',
@@ -448,6 +448,7 @@ export default {
     try {
       let maps = this.maps.slice()
       localStorage.setItem(storage, JSON.stringify(maps))
+      this.sync()
     } catch (err) {
       console.log(err)
     }
@@ -473,6 +474,19 @@ export default {
         return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
       })
     },
+    read (cb) {
+      this.$http.get('/storymap/api/read')
+        .then(res => {
+          if (res.body) {
+            cb(res.body)
+            console.log(res.body)
+          } else {
+            console.log(res)
+          }
+        }, err => {
+          console.log(err)
+        })
+    },
     publish () {
       this.$http.post('/storymap/api/publish', { id: this.maps[this.selected.map].id })
         .then(res => {
@@ -485,17 +499,20 @@ export default {
           console.log(err)
         })
     },
-    sync () {
-      this.$http.patch('/storymap/api/sync', { map: JSON.stringify(this.maps[this.selected.map]) })
-        .then(res => {
-          if (res.body.status === 'ok') {
-            console.log('synced')
-          } else {
-            console.log(res)
-          }
-        }, err => {
-          console.log(err)
-        })
+    sync (status, index) {
+      this.$http.patch('/storymap/api/sync', {
+        id: this.maps[index || this.selected.map].id,
+        slides: JSON.stringify(this.maps[index || this.selected.map].slides),
+        status: status || 'update'
+      }).then(res => {
+        if (res.body.status === 'ok') {
+          console.log('synced')
+        } else {
+          console.log(res)
+        }
+      }, err => {
+        console.log(err)
+      })
     },
     onSignIn (user) {
       let token = user.getAuthResponse().id_token
@@ -506,6 +523,14 @@ export default {
             this.loginUI = false
             this.username = user.getBasicProfile().getName()
             this.listUI = true
+            this.read((data) => {
+              console.log(data)
+              if (data.length === 0) {
+                this.sync()
+              } else {
+                this.maps = data
+              }
+            })
           }
         }, err => {
           console.log(err)
@@ -516,6 +541,7 @@ export default {
         id: this.uuid(),
         slides: [ defaultSlide(this.uuid()) ]
       })
+      this.sync('update', this.maps.length - 1)
     },
     selectMap (index) {
       this.selected.map = index
@@ -534,11 +560,14 @@ export default {
         this.maps.splice(this.selected.map, 1)
         this.selected.del = 0
         this.delMapMsg = false
+        this.$nextTick(function () {
+          this.sync('delete')
+        })
       }
     },
     addSlide () {
       this.maps[this.selected.map].slides.push({
-        id: Math.random(),
+        id: this.uuid(),
         headline: '',
         content: '',
         loc: this.maps[this.selected.map].slides[this.maps[this.selected.map].slides.length - 1].loc,
@@ -615,9 +644,9 @@ export default {
           lmap.panTo([lat, lng])
           marker.setLatLng([lat, lng])
 
-          // FIXME
           let maps = this.maps.slice()
           localStorage.setItem(storage, JSON.stringify(maps))
+          this.sync()
         }
       }).addTo(lmap)
 
@@ -630,9 +659,9 @@ export default {
           this.maps[this.selected.map].slides[this.selected.slide].loc = [lat, lng]
           marker.bindPopup(lat + ', ' + lng)
 
-          // FIXME
           let maps = this.maps.slice()
           localStorage.setItem(storage, JSON.stringify(maps))
+          this.sync()
         })
     },
     setStoryMap () {

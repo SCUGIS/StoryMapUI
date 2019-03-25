@@ -30,11 +30,9 @@ const mongoConfig = {
   useNewUrlParser: true
 }
 
-const resOK = data => {
-  return {
-    status: 'ok',
-    res: data || null
-  }
+const resOK = (data = {}) => {
+  data.status = 'ok'
+  return data
 }
 
 const resERR = data => {
@@ -53,6 +51,21 @@ const auth = cb => {
       res.json(resERR('nologin'))
     }
   }
+}
+
+const equalSlide = slide => {
+  assert.strict.deepEqual(Object.keys(slide), [
+    'id',
+    'headline',
+    'content',
+    'loc',
+    'media',
+    'credit',
+    'caption',
+    'background',
+    'marker',
+    'color'
+  ], 'slide not equal')
 }
 
 // account api
@@ -85,31 +98,7 @@ router.get(config.addr + '/link/:id', (req, res) => {
 })
 
 // map api
-router.get(config.addr + '/api/map', auth((req, res) => {
-  let client
-
-  (async () => {
-    try {
-      client = await mongodb.connect(url, mongoConfig)
-      const db = client.db(dbName)
-
-      let result = await db.collection('map').find({
-        owner: req.session.uid
-      }).toArray()
-
-      return result
-    } catch (err) {
-      throw err
-    }
-  })().then((result) => {
-    client.close()
-    res.json(resOK(result))
-  }).catch(err => {
-    console.log(err)
-    res.json(resERR(err.message))
-  })
-}))
-
+// get
 router.get(config.addr + '/api/map/:id', (req, res) => {
   let client
 
@@ -118,39 +107,17 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
       client = await mongodb.connect(url, mongoConfig)
       const db = client.db(dbName)
 
-      let result = await db.collection('map').find({
+      let result = await db.collection('maps').find({
         _id: req.params.id
       }).limit(1).toArray()
 
-      let map = result[0].map
+      let map = result[0]
 
-      if (!map) throw new Error('map notfound')
-
-      if (Array.isArray(map)) {
-        for (let i = 0; i < map.length; i++) {
-          assert.strict.deepEqual(Object.keys(map[i]), [
-            'id',
-            'headline',
-            'content',
-            'loc',
-            'media',
-            'credit',
-            'caption',
-            'background',
-            'marker',
-            'color',
-            'class'
-          ], 'map not equal')
-          console.log(map[i])
-        }
-      } else {
-        throw new Error('not array')
-      }
+      if (map) throw new Error('map not found')
 
       let slides = []
-      for (let i = 0; i < map.length; i++) {
-        let s = map[i]
-        console.log(s.loc)
+      for (let i = 0; i < map.slides.length; i++) {
+        let s = map.slides[i]
         let slide = {
           date: '',
           location: {
@@ -215,88 +182,119 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
   })
 })
 
-router.post(config.addr + '/api/map', auth((req, res) => {
+// read
+router.get(config.addr + '/api/read', auth((req, res) => {
   let client
 
   (async () => {
     try {
       client = await mongodb.connect(url, mongoConfig)
       const db = client.db(dbName)
-      const id = String(uuidv4())
-      const map = JSON.parse(req.body.map)
 
-      if (Array.isArray(map)) {
-        for (let i = 0; i < map.length; i++) {
-          assert.strict.deepEqual(Object.keys(map[i]), [
-            'id',
-            'headline',
-            'content',
-            'loc',
-            'media',
-            'credit',
-            'caption',
-            'background',
-            'marker',
-            'color',
-            'class'
-          ], 'map not equal')
-          console.log(map[i])
-        }
-      } else {
-        throw new Error('not array')
+      let maps = await db.collection('maps').find({
+        owner: req.session.uid
+      }).toArray()
+
+      for (let i = 0; i < maps.length; i++) {
+        delete maps[i]._id
       }
 
-      let result = await db.collection('map').insertOne({
-        _id: id,
-        owner: req.session.uid,
-        name: req.body.name,
-        map: map
-      })
-
-      if (result.insertedCount !== 1) throw new Error('insert failed')
-      return id
+      return maps
     } catch (err) {
       throw err
     }
   })().then((result) => {
     client.close()
-    res.json(resOK({
-      id: result
-    }))
+    res.json(result)
   }).catch(err => {
     console.log(err)
     res.json(resERR(err.message))
   })
 }))
 
-router.patch(config.addr + '/api/map/:id', auth((req, res) => {
+// publish
+router.post(config.addr + '/api/publish', (req, res) => {
   let client
+
   (async () => {
     try {
       client = await mongodb.connect(url, mongoConfig)
       const db = client.db(dbName)
-      const map = JSON.parse(req.body.map)
 
-      if (Array.isArray(map)) {
-        for (let i = 0; i < map.length; i++) {
-          assert.strict.deepEqual(Object.keys(map[i]), ['image', 'credit', 'caption', 'headline', 'content'], 'map not equal')
-          console.log(map[i])
+      let map = await db.collection('maps').find({
+        id: req.body.id,
+        owner: req.session.uid
+      }).limit(1).toArray()
+
+      if (map.length === 0) throw new Error('map not found')
+
+      await db.collection('public').save({
+        _id: map[0]._id,
+        id: map[0].id,
+        owner: req.session.uid,
+        slides: map[0].slides
+      })
+
+      return map[0]._id
+    } catch (err) {
+      throw err
+    }
+  })().then((result) => {
+    client.close()
+    res.json({
+      id: result
+    })
+  }).catch(err => {
+    console.log(err)
+    res.json(resERR(err.message))
+  })
+})
+
+// sync
+router.patch(config.addr + '/api/sync', auth((req, res) => {
+  let client
+
+  (async () => {
+    try {
+      client = await mongodb.connect(url, mongoConfig)
+      const db = client.db(dbName)
+      const slides = JSON.parse(req.body.slides)
+
+      if (req.body.id && Array.isArray(slides)) {
+        for (let i = 0; i < slides.length; i++) {
+          equalSlide(slides[i])
         }
       } else {
         throw new Error('not array')
       }
+      console.log(req.body)
 
-      let result = await db.collection('map').updateOne({
-        _id: req.params.id,
-        owner: req.session.uid
-      }, {
-        $set: {
-          name: req.body.name,
-          map: map
+      if (req.body.status === 'update') {
+        let result = await db.collection('maps').updateOne({
+          id: req.body.id,
+          owner: req.session.uid
+        }, {
+          $set: {
+            slides: slides
+          }
+        })
+
+        if (result.matchedCount !== 1) {
+          const id = String(uuidv4())
+
+          await db.collection('maps').insertOne({
+            _id: id,
+            id: req.body.id,
+            owner: req.session.uid,
+            slides: slides
+          })
         }
-      })
-
-      if (result.matchedCount !== 1) throw new Error('update failed')
+      } else if (req.body.status === 'delete') {
+        await db.collection('maps').removeOne({
+          id: req.body.id,
+          owner: req.session.uid
+        })
+      }
     } catch (err) {
       throw err
     }
@@ -316,7 +314,7 @@ router.delete(config.addr + '/api/map/:id', auth((req, res) => {
       client = await mongodb.connect(url, mongoConfig)
       const db = client.db(dbName)
 
-      let result = await db.collection('map').deleteOne({
+      let result = await db.collection('maps').deleteOne({
         _id: req.params.id,
         owner: req.session.uid
       })
