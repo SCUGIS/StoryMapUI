@@ -97,7 +97,7 @@
                 class="slide"
               >
                 <v-list-tile-content>
-                  <v-list-tile-title>Add Slide</v-list-tile-title>
+                  <v-list-tile-title>Add Story</v-list-tile-title>
                 </v-list-tile-content>
 
                 <v-list-tile-action>
@@ -321,7 +321,7 @@
         >
           <v-card>
             <v-toolbar dark color="info">
-              <v-toolbar-title>My StoryMap</v-toolbar-title>
+              <v-toolbar-title>Manage</v-toolbar-title>
             </v-toolbar>
             <v-list two-line>
               <v-list-tile
@@ -396,7 +396,7 @@ let defaultSlide = (id) => {
     id: id,
     headline: '',
     content: '',
-    loc: [25.045898, -238.474045],
+    loc: [25.0951438,121.5438091],
     media: '',
     credit: '',
     caption: '',
