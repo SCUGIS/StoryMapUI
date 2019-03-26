@@ -1,12 +1,16 @@
 const config = module.exports = {}
 
 config.port = 3003
-config.addr = '/storymap'
+config.addr = '/storymap/'
 
 config.db = {
-  name: 'storymap',
-  account: 'storymap',
-  passwd: 'storymap'
+  name: '',
+  account: '',
+  passwd: ''
+}
+
+config.key = {
+  googleMap: ''
 }
 
 config.redis = {
