@@ -578,6 +578,7 @@ export default {
         marker: '',
         color: '#FFFFFF'
       })
+      this.selectSlide(this.maps[this.selected.map].slides.length - 1)
     },
     selectSlide (index) {
       this.selected.slide = index
