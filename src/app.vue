@@ -675,7 +675,7 @@ export default {
             lat: s.loc[0],
             lon: s.loc[1],
             line: true,
-            zoom: 18
+            zoom: s.zoom
           },
           text: {
             headline: s.headline,
