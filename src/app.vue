@@ -396,8 +396,8 @@ let defaultSlide = ({ id, loc }) => {
     id: id,
     headline: '',
     content: '',
-    loc: loc || [25.0951438, 121.5438091],
-    zoom: 18,
+    loc: loc || [25.093703, 121.546028],
+    zoom: 17,
     media: '',
     credit: '',
     caption: '',
@@ -647,7 +647,6 @@ export default {
           this.sync()
         }
       }).addTo(lmap)
-
 
       marker = L1.marker(this.maps[this.selected.map].slides[this.selected.slide].loc, { title: 'point', alt: 'point', draggable: true })
         .addTo(lmap).on('dragend', () => {
