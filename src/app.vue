@@ -598,7 +598,7 @@ export default {
             this.selected.del === this.selected.slide) {
           this.selectSlide(this.selected.slide - 1)
         }
-        this.maps[this.selected.map].slides.splice(this.selected.map, 1)
+        this.maps[this.selected.map].slides.splice(this.selected.del, 1)
         this.selected.del = 0
         this.delSlideMsg = false
       }
