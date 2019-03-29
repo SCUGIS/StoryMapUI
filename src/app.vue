@@ -36,7 +36,7 @@
           <v-list-tile
             @click="listUI = true"
           >
-            <v-list-tile-title>My StoryMap</v-list-tile-title>
+            <v-list-tile-title>Manage</v-list-tile-title>
           </v-list-tile>
           <v-list-tile
             @click="loginUI = true"
