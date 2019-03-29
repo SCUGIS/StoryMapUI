@@ -97,7 +97,7 @@
                 class="slide"
               >
                 <v-list-tile-content>
-                  <v-list-tile-title>Add Story</v-list-tile-title>
+                  <v-list-tile-title>Add Slide</v-list-tile-title>
                 </v-list-tile-content>
 
                 <v-list-tile-action>
@@ -358,7 +358,7 @@
                 class="slide"
               >
                 <v-list-tile-content>
-                  <v-list-tile-title>Add Slide</v-list-tile-title>
+                  <v-list-tile-title>Add Story</v-list-tile-title>
                 </v-list-tile-content>
 
                 <v-list-tile-action>
