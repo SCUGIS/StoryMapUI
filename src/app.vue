@@ -665,7 +665,24 @@ export default {
         })
     },
     setStoryMap () {
-      let slides = []
+      let slides = [
+        {
+          'date': '',
+          'media': {
+            'url': '',
+            'caption': '',
+            'credit': ''
+          },
+          'type': 'overview',
+          'location': {
+            'line': true
+          },
+          'text': {
+            'headline': '',
+            'text': ''
+          }
+        }
+      ]
 
       for (let i = 0; i < this.maps[this.selected.map].slides.length; i++) {
         let s = this.maps[this.selected.map].slides[i]
@@ -692,9 +709,6 @@ export default {
             opacity: 100
           }
         }
-        if (i === 0) {
-          slide.overview = true
-        }
 
         if (s.marker) {
           slide.location.use_custom_marker = true
@@ -708,6 +722,7 @@ export default {
       let map = {
         storymap: {
           maxZoom: 18,
+          minZoom: 9,
           attribution: '',
           language: 'zh-tw',
           call_to_action: true,
@@ -722,6 +737,7 @@ export default {
 
       let blob = new Blob([JSON.stringify(map)], { type: 'application/json' })
       let url = URL.createObjectURL(blob)
+      console.log(map)
 
       smap = new VCO.StoryMap('storymap', url, {})
     },
