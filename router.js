@@ -59,6 +59,7 @@ const equalSlide = slide => {
     'headline',
     'content',
     'loc',
+    'zoom',
     'media',
     'credit',
     'caption',
@@ -124,7 +125,7 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
             lat: s.loc[0],
             lon: s.loc[1],
             line: true,
-            zoom: 14
+            zoom: s.zoom
           },
           text: {
             headline: s.headline,
@@ -160,7 +161,7 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
           attribution: '',
           language: 'zh-tw',
           call_to_action: true,
-          zoomify: false,
+          zoomify: true,
           map_type: 'stamen:toner-lite',
           call_to_action_text: '',
           map_as_image: false,

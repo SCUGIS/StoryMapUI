@@ -389,14 +389,15 @@ import L1 from 'L1'
 import VueColor from 'vue-color'
 
 let marker, lmap, smap
-let storage = 'maps23'
+let storage = 'maps24'
 
-let defaultSlide = (id) => {
+let defaultSlide = ({ id, loc }) => {
   return {
     id: id,
     headline: '',
     content: '',
-    loc: [25.0951438,121.5438091],
+    loc: loc || [25.0951438, 121.5438091],
+    zoom: 18,
     media: '',
     credit: '',
     caption: '',
@@ -415,7 +416,7 @@ export default {
       maps: [
         {
           id: this.uuid(),
-          slides: [ defaultSlide(this.uuid()) ]
+          slides: [ defaultSlide({ id: this.uuid() }) ]
         }
       ],
       loginUI: false,
@@ -539,7 +540,7 @@ export default {
     addMap () {
       this.maps.push({
         id: this.uuid(),
-        slides: [ defaultSlide(this.uuid()) ]
+        slides: [ defaultSlide({ id: this.uuid() }) ]
       })
       this.sync('update', this.maps.length - 1)
     },
@@ -566,24 +567,16 @@ export default {
       }
     },
     addSlide () {
-      this.maps[this.selected.map].slides.push({
+      this.maps[this.selected.map].slides.push(defaultSlide({
         id: this.uuid(),
-        headline: '',
-        content: '',
-        loc: this.maps[this.selected.map].slides[this.maps[this.selected.map].slides.length - 1].loc,
-        media: '',
-        credit: '',
-        caption: '',
-        background: '',
-        marker: '',
-        color: '#FFFFFF'
-      })
+        loc: this.maps[this.selected.map].slides[this.maps[this.selected.map].slides.length - 1].loc
+      }))
       this.selectSlide(this.maps[this.selected.map].slides.length - 1)
     },
     selectSlide (index) {
       this.selected.slide = index
 
-      lmap.setView(this.maps[this.selected.map].slides[index].loc)
+      lmap.setView(this.maps[this.selected.map].slides[index].loc, this.maps[this.selected.map].slides[index].zoom)
       marker.setLatLng(this.maps[this.selected.map].slides[index].loc)
     },
     selectDel (index, type) {
@@ -624,7 +617,11 @@ export default {
         smap._el.menubar.remove()
         smap._el.storyslider.remove()
       }
-      lmap = L1.map('map').setView(this.maps[this.selected.map].slides[this.selected.slide].loc, 20)
+      lmap = L1.map('map').setView(this.maps[this.selected.map].slides[this.selected.slide].loc, 18)
+
+      lmap.on('zoomend', () => {
+        this.maps[this.selected.map].slides[this.selected.slide].zoom = lmap.getZoom()
+      })
 
       L1.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
         maxZoom: 18,
@@ -651,6 +648,7 @@ export default {
         }
       }).addTo(lmap)
 
+
       marker = L1.marker(this.maps[this.selected.map].slides[this.selected.slide].loc, { title: 'point', alt: 'point', draggable: true })
         .addTo(lmap).on('dragend', () => {
           let coord = String(marker.getLatLng()).split(', ')
@@ -658,6 +656,7 @@ export default {
           let lng = coord[1].split(')')[0]
 
           this.maps[this.selected.map].slides[this.selected.slide].loc = [lat, lng]
+          this.maps[this.selected.map].slides[this.selected.slide].zoom = lmap.getZoom()
           marker.bindPopup(lat + ', ' + lng)
 
           let maps = this.maps.slice()
@@ -676,7 +675,7 @@ export default {
             lat: s.loc[0],
             lon: s.loc[1],
             line: true,
-            zoom: 14
+            zoom: 18
           },
           text: {
             headline: s.headline,
@@ -712,7 +711,7 @@ export default {
           attribution: '',
           language: 'zh-tw',
           call_to_action: true,
-          zoomify: false,
+          zoomify: true,
           map_type: 'stamen:toner-lite',
           call_to_action_text: '',
           map_as_image: false,
