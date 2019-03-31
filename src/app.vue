@@ -562,7 +562,7 @@ export default {
       this.$http.post('/storymap/api/publish', { id: this.maps[this.selected.map].id })
         .then(res => {
           if (res.body.status === 'ok') {
-            window.open('/storymap/link/' + res.data.id)
+            window.open('/storymap/link/' + res.body.id)
           } else {
             console.log(res)
           }
@@ -790,24 +790,7 @@ export default {
       this.sync()
     },
     setStoryMap () {
-      let slides = [
-        {
-          'date': '',
-          'media': {
-            'url': '',
-            'caption': '',
-            'credit': ''
-          },
-          'type': 'overview',
-          'location': {
-            'line': true
-          },
-          'text': {
-            'headline': '',
-            'text': ''
-          }
-        }
-      ]
+      let slides = []
 
       for (let i = 0; i < this.maps[this.selected.map].slides.length; i++) {
         let s = this.maps[this.selected.map].slides[i]
@@ -833,6 +816,9 @@ export default {
             color: s.color,
             opacity: 100
           }
+        }
+        if (i === 0) {
+          slide.overview = true
         }
 
         if (s.marker) {
