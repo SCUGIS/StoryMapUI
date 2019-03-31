@@ -550,7 +550,6 @@ export default {
         .then(res => {
           if (res.body) {
             cb(res.body)
-            console.log(res.body)
           } else {
             console.log(res)
           }
@@ -597,7 +596,6 @@ export default {
             this.username = user.getBasicProfile().getName()
             this.listUI = true
             this.read((data) => {
-              console.log(data)
               if (data.length === 0) {
                 this.sync()
               } else {
@@ -767,6 +765,7 @@ export default {
           break
         case 7:
           mapLayer = this.layer.wiki
+          break
       }
 
       let option = {
@@ -783,10 +782,15 @@ export default {
 
       layer = L1.tileLayer(mapLayer, option)
       lmap.addLayer(layer)
+
+      this.maps[this.selected.map].layer = mapId ? mapLayer.replace('{id}', mapId) : mapLayer
+
       this.maps[this.selected.map].maptype = name
-      if (mapId) {
-        this.maps[this.selected.map].layer = mapLayer.replace('{id}', mapId)
-      }
+
+      console.log('mapID: ' + mapId)
+      console.log('layer: ' + this.maps[this.selected.map].layer)
+      console.log('mapLayer: ' + mapLayer)
+      console.log('maptype: ' + this.maps[this.selected.map].maptype)
       this.sync()
     },
     setStoryMap () {
@@ -830,6 +834,7 @@ export default {
         slides.push(slide)
       }
 
+      console.log('setmap layer:' + this.maps[this.selected.map].layer)
       let map = {
         storymap: {
           maxZoom: 18,
@@ -848,7 +853,6 @@ export default {
 
       let blob = new Blob([JSON.stringify(map)], { type: 'application/json' })
       let url = URL.createObjectURL(blob)
-      console.log(map)
 
       smap = new VCO.StoryMap('storymap', url, {})
     },
@@ -884,7 +888,6 @@ export default {
             }
           })
             .then(res => {
-              console.log(res.body.data.link)
               this.maps[this.selected.map].slides[this.selected.slide].media = res.body.data.link
             }, err => {
               console.log(err)
