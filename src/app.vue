@@ -178,6 +178,12 @@
                       >
                         Options
                       </v-btn>
+                      <v-btn
+                        color="primary"
+                        @click="mapUI = true"
+                      >
+                        Map Options
+                      </v-btn>
                     </v-form>
                   </v-card-text>
                 </v-card>
@@ -316,6 +322,37 @@
           </v-card>
         </v-dialog>
         <v-dialog
+          v-model="mapUI"
+          max-width="600"
+        >
+          <v-card>
+            <v-toolbar dark color="info">
+              <v-toolbar-title>Map Options</v-toolbar-title>
+            </v-toolbar>
+            <v-card-title class="headline">Map Type</v-card-title>
+            <v-card-text>
+              <v-select
+                :items="maptype"
+                @change="updateLayer"
+                v-model="maps[selected.map].maptype"
+                label="map type"
+                solo
+              ></v-select>
+            </v-card-text>
+
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn
+                color="primary darken-1"
+                flat="flat"
+                @click="mapUI = false"
+              >
+                Close
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+        <v-dialog
           v-model="listUI"
           max-width="600"
         >
@@ -388,8 +425,8 @@ import VCO from 'VCO'
 import L1 from 'L1'
 import VueColor from 'vue-color'
 
-let marker, lmap, smap
-let storage = 'maps24'
+let marker, lmap, smap, layer
+let storage = 'maps27'
 
 let defaultSlide = ({ id, loc }) => {
   return {
@@ -407,20 +444,53 @@ let defaultSlide = ({ id, loc }) => {
   }
 }
 
+let defaultMap = ({ id, slides, layer }) => {
+  return {
+    id,
+    maptype: 'Open Street Maps: Standard',
+    layer: 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    slides
+  }
+}
+
 export default {
   components: {
     'chrome-picker': VueColor.Chrome
   },
   data () {
     let originData = {
-      maps: [
-        {
-          id: this.uuid(),
-          slides: [ defaultSlide({ id: this.uuid() }) ]
-        }
+      maps: [ defaultMap({
+        id: this.uuid(),
+        slides: [ defaultSlide({
+          id: this.uuid()
+        }) ]
+      }) ],
+      maptype: [
+        'Open Street Maps: Standard',
+        'Stamem Maps: Toner Lite',
+        'Stamem Maps: Toner',
+        'Stamem Maps: Toner Line',
+        'Stamem Maps: Toner Labels',
+        'Stamem Maps: Toner Background',
+        'Stamem Maps: Watercolor',
+        'Wikimedia Maps'
       ],
+      layer: {
+        osm: 'http://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        stamen: 'http://b.tile.stamen.com/{id}/{z}/{x}/{y}.png',
+        wiki: 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png'
+      },
+      stamenId: {
+        tonerLite: 'toner-lite',
+        toner: 'toner',
+        tonerLines: 'toner-lines',
+        tonerLabels: 'toner-labels',
+        tonerBackground: 'toner-background',
+        watercolor: 'watercolor'
+      },
       loginUI: false,
       optionUI: false,
+      mapUI: false,
       listUI: false,
       previewUI: false,
       perviewBtn: 'preview',
@@ -492,7 +562,7 @@ export default {
       this.$http.post('/storymap/api/publish', { id: this.maps[this.selected.map].id })
         .then(res => {
           if (res.body.status === 'ok') {
-            window.open('/storymap/link/' + res.body.id)
+            window.open('/storymap/link/' + res.data.id)
           } else {
             console.log(res)
           }
@@ -503,6 +573,8 @@ export default {
     sync (status, index) {
       this.$http.patch('/storymap/api/sync', {
         id: this.maps[index || this.selected.map].id,
+        maptype: this.maps[index || this.selected.map].maptype,
+        layer: this.maps[index || this.selected.map].layer,
         slides: JSON.stringify(this.maps[index || this.selected.map].slides),
         status: status || 'update'
       }).then(res => {
@@ -538,10 +610,12 @@ export default {
         })
     },
     addMap () {
-      this.maps.push({
+      this.maps.push(defaultMap({
         id: this.uuid(),
-        slides: [ defaultSlide({ id: this.uuid() }) ]
-      })
+        slides: [ defaultSlide({
+          id: this.uuid()
+        }) ]
+      }))
       this.sync('update', this.maps.length - 1)
     },
     selectMap (index) {
@@ -619,17 +693,13 @@ export default {
       }
       lmap = L1.map('map').setView(this.maps[this.selected.map].slides[this.selected.slide].loc, 18)
 
+      window.lmap = lmap
+
       lmap.on('zoomend', () => {
         this.maps[this.selected.map].slides[this.selected.slide].zoom = lmap.getZoom()
       })
 
-      L1.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
-        maxZoom: 18,
-        attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
-          '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
-          'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
-        id: 'mapbox.streets'
-      }).addTo(lmap)
+      this.updateLayer(this.maps[this.selected.map].maptype)
 
       new L1.Control.GPlaceAutocomplete({
         callback: (place) => {
@@ -662,6 +732,62 @@ export default {
           localStorage.setItem(storage, JSON.stringify(maps))
           this.sync()
         })
+    },
+    updateLayer (name) {
+      let mapLayer, mapId
+      let nu = this.maptype.indexOf(name)
+
+      switch (nu) {
+        case 0:
+          mapLayer = this.layer.osm
+          break
+        case 1:
+          mapId = this.stamenId.tonerLite
+          mapLayer = this.layer.stamen
+          break
+        case 2:
+          mapId = this.stamenId.toner
+          mapLayer = this.layer.stamen
+          break
+        case 3:
+          mapId = this.stamenId.tonerLines
+          mapLayer = this.layer.stamen
+          break
+        case 4:
+          mapId = this.stamenId.tonerLabels
+          mapLayer = this.layer.stamen
+          break
+        case 5:
+          mapId = this.stamenId.tonerBackground
+          mapLayer = this.layer.stamen
+          break
+        case 6:
+          mapId = this.stamenId.watercolor
+          mapLayer = this.layer.stamen
+          break
+        case 7:
+          mapLayer = this.layer.wiki
+      }
+
+      let option = {
+        maxZoom: 18
+      }
+
+      if (nu >= 1 && nu < 7) {
+        option.id = mapId
+      }
+
+      if (layer) {
+        layer.remove()
+      }
+
+      layer = L1.tileLayer(mapLayer, option)
+      lmap.addLayer(layer)
+      this.maps[this.selected.map].maptype = name
+      if (mapId) {
+        this.maps[this.selected.map].layer = mapLayer.replace('{id}', mapId)
+      }
+      this.sync()
     },
     setStoryMap () {
       let slides = [
@@ -726,7 +852,7 @@ export default {
           language: 'zh-tw',
           call_to_action: true,
           zoomify: true,
-          map_type: 'stamen:toner-lite',
+          map_type: this.maps[this.selected.map].layer,
           call_to_action_text: '',
           map_as_image: false,
           map_subdomains: '',
