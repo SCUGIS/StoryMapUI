@@ -1,7 +1,7 @@
 const config = module.exports = {}
 
 config.port = 3003
-config.addr = '/storymap/'
+config.addr = '/storymap'
 
 config.db = {
   name: '',
