@@ -7,7 +7,7 @@ const uuidv4 = require('uuid').v4
 const express = require('express')
 const { OAuth2Client } = require('google-auth-library')
 const mongodb = require('mongodb').MongoClient
-const assert = require('assert')
+const assert = require('assert').strict
 
 const router = module.exports = express.Router()
 const client = new OAuth2Client(key.web.client_id)
@@ -108,13 +108,15 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
       client = await mongodb.connect(url, mongoConfig)
       const db = client.db(dbName)
 
-      let result = await db.collection('maps').find({
+      console.log(req.params.id)
+      let result = await db.collection('public').find({
         _id: req.params.id
       }).limit(1).toArray()
+      console.log(result)
 
       let map = result[0]
 
-      if (map) throw new Error('map not found')
+      if (!map) throw new Error('map not found')
 
       let slides = []
       for (let i = 0; i < map.slides.length; i++) {
@@ -162,7 +164,7 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
           language: 'zh-tw',
           call_to_action: true,
           zoomify: true,
-          map_type: 'stamen:toner-lite',
+          map_type: map.layer,
           call_to_action_text: '',
           map_as_image: false,
           map_subdomains: '',
@@ -232,6 +234,7 @@ router.post(config.addr + '/api/publish', (req, res) => {
       await db.collection('public').save({
         _id: map[0]._id,
         id: map[0].id,
+        layer: map[0].layer,
         owner: req.session.uid,
         slides: map[0].slides
       })
@@ -243,6 +246,7 @@ router.post(config.addr + '/api/publish', (req, res) => {
   })().then((result) => {
     client.close()
     res.json({
+      status: 'ok',
       id: result
     })
   }).catch(err => {
@@ -261,12 +265,18 @@ router.patch(config.addr + '/api/sync', auth((req, res) => {
       const db = client.db(dbName)
       const slides = JSON.parse(req.body.slides)
 
-      if (req.body.id && Array.isArray(slides)) {
+      if (req.body.id &&
+          req.body.maptype &&
+          req.body.layer &&
+          typeof req.body.maptype === 'string' &&
+          typeof req.body.layer === 'string' &&
+          Array.isArray(slides)) {
+        console.log(req.body)
         for (let i = 0; i < slides.length; i++) {
           equalSlide(slides[i])
         }
       } else {
-        throw new Error('not array')
+        throw new Error('not map')
       }
       console.log(req.body)
 
@@ -276,6 +286,8 @@ router.patch(config.addr + '/api/sync', auth((req, res) => {
           owner: req.session.uid
         }, {
           $set: {
+            maptype: req.body.maptype,
+            layer: req.body.layer,
             slides: slides
           }
         })
@@ -287,6 +299,8 @@ router.patch(config.addr + '/api/sync', auth((req, res) => {
             _id: id,
             id: req.body.id,
             owner: req.session.uid,
+            maptype: req.body.maptype,
+            layer: req.body.layer,
             slides: slides
           })
         }
