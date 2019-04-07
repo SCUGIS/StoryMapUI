@@ -38,6 +38,18 @@
           >
             <v-list-tile-title>Manage</v-list-tile-title>
           </v-list-tile>
+          <a id="downloadJSON" style="display:none"></a>
+          <v-list-tile
+            @click="backup"
+          >
+            <v-list-tile-title>Backup</v-list-tile-title>
+          </v-list-tile>
+          <input type="file" id="uploadBackup" multiple="true" accept=".json" style="display:none" @change="processJSON($event)">
+          <v-list-tile
+            @click="restore"
+          >
+            <v-list-tile-title>Restore</v-list-tile-title>
+          </v-list-tile>
           <v-list-tile
             @click="loginUI = true"
           >
@@ -677,6 +689,34 @@ export default {
     },
     updateColor (data) {
       this.maps[this.selected.map].slides[this.selected.slide].color = data.hex
+    },
+    restore () {
+      window.$('#uploadBackup').click()
+    },
+    backup () {
+      localStorage.setItem(storage, JSON.stringify(this.maps))
+      let mapData = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(this.maps))
+      let dlElem = document.getElementById('downloadJSON')
+      dlElem.setAttribute('href', mapData)
+      dlElem.setAttribute('download', 'backup.json')
+      dlElem.click()
+    },
+    processJSON (event, type) {
+      let parser = new FileReader()
+      let json
+      parser.onload = (e) => {
+        try {
+          json = JSON.parse(e.target.result)
+        } catch (err) {
+          console.log(err)
+        }
+
+        if (typeof json === 'object') {
+          this.maps = json
+        }
+      }
+
+      parser.readAsText(event.target.files[0])
     },
     setPreview () {
       this.previewUI = !this.previewUI
