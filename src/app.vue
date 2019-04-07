@@ -338,6 +338,12 @@
                 label="map type"
                 solo
               ></v-select>
+              <v-text-field
+                v-if="maps[selected.map].maptype === 'Custom'"
+                v-model="maps[selected.map].layer"
+                @change="updateLayer(maps[selected.map].maptype)"
+                label="Custom URL"
+              ></v-text-field>
             </v-card-text>
 
             <v-card-actions>
@@ -473,7 +479,8 @@ export default {
         'Stamem Maps: Toner Labels',
         'Stamem Maps: Toner Background',
         'Stamem Maps: Watercolor',
-        'Wikimedia Maps'
+        'Wikimedia Maps',
+        'Custom'
       ],
       layer: {
         osm: 'http://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -765,6 +772,9 @@ export default {
           break
         case 7:
           mapLayer = this.layer.wiki
+          break
+        case 8:
+          mapLayer = this.maps[this.selected.map].layer
           break
       }
 
