@@ -796,6 +796,12 @@ export default {
     setStoryMap () {
       let slides = []
 
+      let setStyle = (content, style) => {
+        return `<div style='${style}'>
+          ${content}
+        </div>`
+      }
+
       for (let i = 0; i < this.maps[this.selected.map].slides.length; i++) {
         let s = this.maps[this.selected.map].slides[i]
         let slide = {
@@ -807,8 +813,8 @@ export default {
             zoom: s.zoom
           },
           text: {
-            headline: s.headline,
-            text: s.content
+            headline: setStyle(s.headline, `font-family: "Helvetica", "Arial","LiHei Pro","黑體-繁","微軟正黑體", sans-serif; color: #000;`),
+            text: setStyle(s.content, `font-family: "Helvetica", "Arial","LiHei Pro","黑體-繁","微軟正黑體", sans-serif; color: #111; font-size: 20px;`)
           },
           media: {
             url: s.media,
