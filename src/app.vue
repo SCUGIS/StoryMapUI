@@ -356,6 +356,36 @@
                 @change="updateLayer(maps[selected.map].maptype)"
                 label="Custom URL"
               ></v-text-field>
+              <v-text-field
+                v-if="maps[selected.map].maptype === 'Mapbox'"
+                v-model="maps[selected.map].mapbox"
+                @change="updateLayer(maps[selected.map].maptype)"
+                label="Mapbox Style"
+              ></v-text-field>
+              <v-text-field
+                v-if="maps[selected.map].maptype === 'Mapbox'"
+                v-model="maps[selected.map].key"
+                @change="updateLayer(maps[selected.map].maptype)"
+                label="Mapbox Access token"
+              ></v-text-field>
+              <v-text-field
+                v-if="maps[selected.map].maptype === 'Gigapixel'"
+                v-model="maps[selected.map].zoomify.path"
+                @change="updateLayer(maps[selected.map].maptype)"
+                label="path"
+              ></v-text-field>
+              <v-text-field
+                v-if="maps[selected.map].maptype === 'Gigapixel'"
+                v-model="maps[selected.map].zoomify.width"
+                @change="updateLayer(maps[selected.map].maptype)"
+                label="width"
+              ></v-text-field>
+              <v-text-field
+                v-if="maps[selected.map].maptype === 'Gigapixel'"
+                v-model="maps[selected.map].zoomify.height"
+                @change="updateLayer(maps[selected.map].maptype)"
+                label="height"
+              ></v-text-field>
             </v-card-text>
 
             <v-card-actions>
@@ -467,7 +497,13 @@ let defaultMap = ({ id, slides, layer }) => {
     id,
     maptype: 'Open Street Maps: Standard',
     layer: 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    slides
+    slides,
+    mapbox: '',
+    zoomify: {
+      path: '',
+      width: 0,
+      height: 0
+    }
   }
 }
 
@@ -492,12 +528,15 @@ export default {
         'Stamem Maps: Toner Background',
         'Stamem Maps: Watercolor',
         'Wikimedia Maps',
-        'Custom'
+        'Custom',
+        'Mapbox',
+        'Gigapixel'
       ],
       layer: {
         osm: 'http://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
         stamen: 'http://b.tile.stamen.com/{id}/{z}/{x}/{y}.png',
-        wiki: 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png'
+        wiki: 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png',
+        mapbox: 'https://api.mapbox.com/styles/v1/{id}/tiles/256/{z}/{x}/{y}'
       },
       stamenId: {
         tonerLite: 'toner-lite',
@@ -822,18 +861,31 @@ export default {
         maxZoom: 18
       }
 
-      if (nu >= 1 && nu < 7) {
-        option.id = mapId
-      }
-
       if (layer) {
         layer.remove()
       }
 
-      layer = L1.tileLayer(mapLayer, option)
-      lmap.addLayer(layer)
+      if (nu <= 8) {
+        layer = L1.tileLayer(mapLayer, option)
+        lmap.addLayer(layer)
 
-      this.maps[this.selected.map].layer = mapId ? mapLayer.replace('{id}', mapId) : mapLayer
+        this.maps[this.selected.map].layer = mapId ? mapLayer.replace('{id}', mapId) : mapLayer
+      } else if (nu === 9) {
+        mapId = this.maps[this.selected.map].mapbox
+        mapLayer = this.layer.mapbox.replace('{id}', mapId) + '?access_token=' + this.maps[this.selected.map].key
+
+        layer = L1.tileLayer(mapLayer, option)
+        lmap.addLayer(layer)
+      } else if (nu === 10) {
+        layer = L1.tileLayer.zoomify(this.maps[this.selected.map].zoomify.path, {
+          width: this.maps[this.selected.map].zoomify.width,
+          height: this.maps[this.selected.map].zoomify.height,
+          tolerance: 0.8,
+          attribution: ''
+        })
+
+        lmap.addLayer(layer)
+      }
 
       this.maps[this.selected.map].maptype = name
 
@@ -906,6 +958,7 @@ export default {
           slides: slides
         }
       }
+      console.log(map)
 
       let blob = new Blob([JSON.stringify(map)], { type: 'application/json' })
       let url = URL.createObjectURL(blob)
