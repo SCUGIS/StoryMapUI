@@ -117,6 +117,11 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
       let map = result[0]
 
       if (!map) throw new Error('map not found')
+      let setStyle = (content, style) => {
+        return `<div style='${style}'>
+          ${content}
+        </div>`
+      }
 
       let slides = []
       for (let i = 0; i < map.slides.length; i++) {
@@ -130,8 +135,8 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
             zoom: s.zoom
           },
           text: {
-            headline: s.headline,
-            text: s.content
+            headline: setStyle(s.headline, `font-family: "Helvetica", "Arial","LiHei Pro","黑體-繁","微軟正黑體", sans-serif; color: #000;`),
+            text: setStyle(s.content, `font-family: "Helvetica", "Arial","LiHei Pro","黑體-繁","微軟正黑體", sans-serif; color: #111; font-size: 20px;`)
           },
           media: {
             url: s.media,
