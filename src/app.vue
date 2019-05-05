@@ -474,15 +474,14 @@ import L1 from 'L1'
 import VueColor from 'vue-color'
 
 let marker, lmap, smap, layer
-let storage = 'maps27'
+let storage = 'maps28'
 
-let defaultSlide = ({ id, loc }) => {
-  return {
-    id: id,
+let defaultSlide = ({ id, loc, zoom }) => {
+  let slide = {
+    id,
     headline: '',
     content: '',
-    loc: loc || [25.093703, 121.546028],
-    zoom: 17,
+    zoom: zoom || 17,
     media: '',
     credit: '',
     caption: '',
@@ -490,15 +489,29 @@ let defaultSlide = ({ id, loc }) => {
     marker: '',
     color: '#FFFFFF'
   }
+
+  if (loc === null) {
+    slide.headline = 'overview'
+  }
+
+  if (loc || loc === null) {
+    slide.loc = loc
+  } else {
+    slide.loc = [25.093703, 121.546028]
+  }
+
+  return slide
 }
 
 let defaultMap = ({ id, slides, layer }) => {
   return {
     id,
     maptype: 'Open Street Maps: Standard',
+    version: '0.0.1',
     layer: 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     slides,
     mapbox: '',
+    key: '',
     zoomify: {
       path: '',
       width: 0,
@@ -515,9 +528,15 @@ export default {
     let originData = {
       maps: [ defaultMap({
         id: this.uuid(),
-        slides: [ defaultSlide({
-          id: this.uuid()
-        }) ]
+        slides: [
+          defaultSlide({
+            id: this.uuid(),
+            loc: null
+          }),
+          defaultSlide({
+            id: this.uuid()
+          })
+        ]
       }) ],
       maptype: [
         'Open Street Maps: Standard',
@@ -697,10 +716,15 @@ export default {
       }
     },
     addSlide () {
+      let loc = lmap.getCenter()
+      let zoom = lmap.getZoom()
+
       this.maps[this.selected.map].slides.push(defaultSlide({
         id: this.uuid(),
-        loc: this.maps[this.selected.map].slides[this.maps[this.selected.map].slides.length - 1].loc
+        loc: [loc.lat, loc.lng],
+        zoom
       }))
+
       this.selectSlide(this.maps[this.selected.map].slides.length - 1)
     },
     selectSlide (index) {
@@ -792,6 +816,7 @@ export default {
           let lng = loc.lng()
 
           this.maps[this.selected.map].slides[this.selected.slide].loc = [lat, lng]
+          this.maps[this.selected.map].slides[this.selected.slide].zoom = lmap.getZoom()
 
           lmap.panTo([lat, lng])
           marker.setLatLng([lat, lng])
