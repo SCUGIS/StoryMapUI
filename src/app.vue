@@ -474,7 +474,7 @@ import L1 from 'L1'
 import VueColor from 'vue-color'
 
 let marker, lmap, smap, layer
-let storage = 'maps28'
+let storage = 'maps30'
 
 let defaultSlide = ({ id, loc, zoom }) => {
   let slide = {
@@ -695,10 +695,7 @@ export default {
     },
     selectMap (index) {
       this.selected.map = index
-      this.selected.slide = 0
-
-      lmap.setView(this.maps[index].slides[0].loc)
-      marker.setLatLng(this.maps[index].slides[0].loc)
+      this.selectSlide(0)
       this.listUI = false
     },
     delMap () {
@@ -728,10 +725,23 @@ export default {
       this.selectSlide(this.maps[this.selected.map].slides.length - 1)
     },
     selectSlide (index) {
+      let originIndex = this.selected.slide
       this.selected.slide = index
 
-      lmap.setView(this.maps[this.selected.map].slides[index].loc, this.maps[this.selected.map].slides[index].zoom)
-      marker.setLatLng(this.maps[this.selected.map].slides[index].loc)
+      if (this.maps[this.selected.map].slides[index].loc !== null) {
+        lmap.setView(this.maps[this.selected.map].slides[index].loc, this.maps[this.selected.map].slides[index].zoom)
+      }
+
+      if (this.maps[this.selected.map].slides[index].loc !== null &&
+          this.maps[this.selected.map].slides[originIndex].loc === null) {
+        this.addMarker()
+      } else if (this.maps[this.selected.map].slides[index].loc === null &&
+                 this.maps[this.selected.map].slides[originIndex].loc !== null) {
+        marker.remove()
+      } else if (this.maps[this.selected.map].slides[index].loc !== null &&
+                 this.maps[this.selected.map].slides[originIndex].loc !== null) {
+        marker.setLatLng(this.maps[this.selected.map].slides[index].loc)
+      }
     },
     selectDel (index, type) {
       if (index !== 0) {
@@ -799,7 +809,18 @@ export default {
         smap._el.menubar.remove()
         smap._el.storyslider.remove()
       }
-      lmap = L1.map('map').setView(this.maps[this.selected.map].slides[this.selected.slide].loc, 18)
+
+      if (this.maps[this.selected.map].slides[this.selected.slide].loc !== null) {
+        lmap = L1.map('map').setView(this.maps[this.selected.map].slides[this.selected.slide].loc, this.maps[this.selected.map].slides[this.selected.slide].zoom)
+      } else {
+        for (let i = this.selected.slide; i < this.maps[this.selected.map].slides.length; i++) {
+          if (this.maps[this.selected.map].slides[i].loc !== null) {
+            console.log(i)
+            lmap = L1.map('map').setView(this.maps[this.selected.map].slides[i].loc, this.maps[this.selected.map].slides[i].zoom)
+            break
+          }
+        }
+      }
 
       window.lmap = lmap
 
@@ -827,20 +848,25 @@ export default {
         }
       }).addTo(lmap)
 
-      marker = L1.marker(this.maps[this.selected.map].slides[this.selected.slide].loc, { title: 'point', alt: 'point', draggable: true })
-        .addTo(lmap).on('dragend', () => {
-          let coord = String(marker.getLatLng()).split(', ')
-          let lat = coord[0].split('(')[1]
-          let lng = coord[1].split(')')[0]
+      this.addMarker()
+    },
+    addMarker () {
+      if (this.selected.slide !== 0) {
+        marker = L1.marker(this.maps[this.selected.map].slides[this.selected.slide].loc, { title: 'point', alt: 'point', draggable: true })
+          .addTo(lmap).on('dragend', () => {
+            let coord = String(marker.getLatLng()).split(', ')
+            let lat = coord[0].split('(')[1]
+            let lng = coord[1].split(')')[0]
 
-          this.maps[this.selected.map].slides[this.selected.slide].loc = [lat, lng]
-          this.maps[this.selected.map].slides[this.selected.slide].zoom = lmap.getZoom()
-          marker.bindPopup(lat + ', ' + lng)
+            this.maps[this.selected.map].slides[this.selected.slide].loc = [lat, lng]
+            this.maps[this.selected.map].slides[this.selected.slide].zoom = lmap.getZoom()
+            marker.bindPopup(lat + ', ' + lng)
 
-          let maps = this.maps.slice()
-          localStorage.setItem(storage, JSON.stringify(maps))
-          this.sync()
-        })
+            let maps = this.maps.slice()
+            localStorage.setItem(storage, JSON.stringify(maps))
+            this.sync()
+          })
+      }
     },
     updateLayer (name) {
       let mapLayer, mapId
