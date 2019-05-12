@@ -929,7 +929,7 @@ export default {
 
         this.maps[this.selected.map].layer = mapLayer
       } else if (nu === 9) {
-        mapId = this.maps[this.selected.map].mapbox
+        mapId = this.maps[this.selected.map].mapbox.replace(/mapbox:\/\/styles\//, '')
         mapLayer = this.layer.mapbox.replace('{id}', mapId) + '?access_token=' + this.maps[this.selected.map].key
 
         layer = L1.tileLayer(mapLayer, option)
@@ -1003,17 +1003,26 @@ export default {
         slides.push(slide)
       }
 
-      console.log('setmap layer:' + this.maps[this.selected.map].layer)
+      console.log('setmap layer:' + map.layer)
       let mapData = {
         calculate_zoom: false,
         storymap: {
           language: 'zh-tw',
           zoomify: false,
-          map_type: this.maps[this.selected.map].layer,
+          map_type: map.layer,
           map_as_image: false,
           slides: slides
         }
       }
+
+      if (map.maptype === 'Mapbox') {
+        mapData.storymap.map_type = 'mapbox:' + map.mapbox
+        mapData.storymap.map_access_token = map.key
+      } else if (map.maptype === 'Gigapixel') {
+        mapData.storymap.map_type = 'zoomify'
+        mapData.storymap.zoomify = map.zoomify
+      }
+
       console.log(mapData)
 
       let blob = new Blob([JSON.stringify(mapData)], { type: 'application/json' })

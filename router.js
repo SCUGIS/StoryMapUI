@@ -194,11 +194,19 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
         calculate_zoom: false,
         storymap: {
           language: 'zh-tw',
-          zoomify: true,
-          map_type: this.maps[this.selected.map].layer,
+          zoomify: false,
+          map_type: map.layer,
           map_as_image: false,
           slides: slides
         }
+      }
+      console.log(map)
+      if (map.maptype === 'Mapbox') {
+        mapData.storymap.map_type = 'mapbox:' + map.mapbox
+        mapData.storymap.map_access_token = map.key
+      } else if (map.maptype === 'Gigapixel') {
+        mapData.storymap.map_type = 'zoomify'
+        mapData.storymap.zoomify = map.zoomify
       }
 
       return mapData
@@ -262,13 +270,7 @@ router.post(config.addr + '/api/publish', (req, res) => {
 
       if (map.length === 0) throw new Error('map not found')
 
-      await db.collection('public').save({
-        _id: map[0]._id,
-        id: map[0].id,
-        layer: map[0].layer,
-        owner: req.session.uid,
-        slides: map[0].slides
-      })
+      await db.collection('public').save(map[0])
 
       return map[0]._id
     } catch (err) {
