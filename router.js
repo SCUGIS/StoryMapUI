@@ -7,7 +7,6 @@ const uuidv4 = require('uuid').v4
 const express = require('express')
 const { OAuth2Client } = require('google-auth-library')
 const mongodb = require('mongodb').MongoClient
-const assert = require('assert').strict
 
 const router = module.exports = express.Router()
 const client = new OAuth2Client(key.web.client_id)
@@ -53,20 +52,43 @@ const auth = cb => {
   }
 }
 
-const equalSlide = slide => {
-  assert.strict.deepEqual(Object.keys(slide), [
+const equalMap = maps => {
+  let key = [
+    'maptype',
+    'version',
+    'layer',
+    'slides',
+    'mapbox',
+    'key',
+    'zoomify',
+    'id'
+  ]
+  Object.keys(maps).map(map => {
+    if (key.indexOf(map) === -1) {
+      throw new Error('not equal map')
+    }
+  })
+}
+
+const equalSlide = slides => {
+  let key = [
     'id',
     'headline',
     'content',
-    'loc',
     'zoom',
     'media',
     'credit',
     'caption',
     'background',
     'marker',
-    'color'
-  ], 'slide not equal')
+    'color',
+    'loc'
+  ]
+  Object.keys(slides).map(slide => {
+    if (key.indexOf(slide) === -1) {
+      throw new Error('not equal map')
+    }
+  })
 }
 
 // account api
@@ -129,10 +151,12 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
         let slide = {
           date: '',
           location: {
-            lat: s.loc[0],
-            lon: s.loc[1],
-            line: true,
-            zoom: s.zoom
+            ...s.loc ? {
+              lat: s.loc[0],
+              lon: s.loc[1],
+              zoom: s.zoom
+            } : {},
+            line: true
           },
           text: {
             headline: setStyle(s.headline, `font-family: "Helvetica", "Arial","LiHei Pro","黑體-繁","微軟正黑體", sans-serif; color: #000;`),
@@ -150,7 +174,11 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
           }
         }
         if (i === 0) {
-          slide.overview = true
+          slide.type = 'overview'
+          delete slide.location.lat
+          delete slide.location.lon
+          delete slide.location.zoom
+          delete slide.media
         }
 
         if (s.marker) {
@@ -162,22 +190,18 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
         slides.push(slide)
       }
 
-      let smap = {
+      let mapData = {
+        calculate_zoom: false,
         storymap: {
-          maxZoom: 18,
-          attribution: '',
           language: 'zh-tw',
-          call_to_action: true,
           zoomify: true,
-          map_type: map.layer,
-          call_to_action_text: '',
+          map_type: this.maps[this.selected.map].layer,
           map_as_image: false,
-          map_subdomains: '',
           slides: slides
         }
       }
 
-      return smap
+      return mapData
     } catch (err) {
       throw err
     }
@@ -204,7 +228,9 @@ router.get(config.addr + '/api/read', auth((req, res) => {
       }).toArray()
 
       for (let i = 0; i < maps.length; i++) {
+        maps[i].id = maps[i]._id
         delete maps[i]._id
+        delete maps[i].owner
       }
 
       return maps
@@ -230,7 +256,7 @@ router.post(config.addr + '/api/publish', (req, res) => {
       const db = client.db(dbName)
 
       let map = await db.collection('maps').find({
-        id: req.body.id,
+        _id: req.body.id,
         owner: req.session.uid
       }).limit(1).toArray()
 
@@ -268,32 +294,32 @@ router.patch(config.addr + '/api/sync', auth((req, res) => {
     try {
       client = await mongodb.connect(url, mongoConfig)
       const db = client.db(dbName)
-      const slides = JSON.parse(req.body.slides)
-
-      if (req.body.id &&
-          req.body.maptype &&
-          req.body.layer &&
-          typeof req.body.maptype === 'string' &&
-          typeof req.body.layer === 'string' &&
-          Array.isArray(slides)) {
-        console.log(req.body)
-        for (let i = 0; i < slides.length; i++) {
-          equalSlide(slides[i])
-        }
-      } else {
-        throw new Error('not map')
+      if (!req.body.id) {
+        throw new Error('id not found')
       }
-      console.log(req.body)
 
       if (req.body.status === 'update') {
+        const map = JSON.parse(req.body.map)
+
+        equalMap(map)
+        console.log(req.body)
+        for (let i = 0; i < map.slides.length; i++) {
+          equalSlide(map.slides[i])
+        }
+        console.log(req.body)
+
         let result = await db.collection('maps').updateOne({
-          id: req.body.id,
+          _id: req.body.id,
           owner: req.session.uid
         }, {
           $set: {
-            maptype: req.body.maptype,
-            layer: req.body.layer,
-            slides: slides
+            maptype: map.maptype,
+            version: map.version,
+            layer: map.layer,
+            slides: map.slides,
+            mapbox: map.mapbox,
+            key: map.key,
+            zoomify: map.zoomify
           }
         })
 
@@ -302,25 +328,33 @@ router.patch(config.addr + '/api/sync', auth((req, res) => {
 
           await db.collection('maps').insertOne({
             _id: id,
-            id: req.body.id,
             owner: req.session.uid,
-            maptype: req.body.maptype,
-            layer: req.body.layer,
-            slides: slides
+            maptype: map.maptype,
+            version: map.version,
+            layer: map.layer,
+            slides: map.slides,
+            mapbox: map.mapbox,
+            key: map.key,
+            zoomify: map.zoomify
           })
+          return id
         }
+
+        return req.body.id
       } else if (req.body.status === 'delete') {
         await db.collection('maps').removeOne({
-          id: req.body.id,
+          _id: req.body.id,
           owner: req.session.uid
         })
       }
     } catch (err) {
       throw err
     }
-  })().then(() => {
+  })().then((id) => {
     client.close()
-    res.json(resOK())
+    res.json(resOK({
+      id
+    }))
   }).catch(err => {
     console.log(err)
     res.json(resERR(err.message))

@@ -474,7 +474,7 @@ import L1 from 'L1'
 import VueColor from 'vue-color'
 
 let marker, lmap, smap, layer
-let storage = 'maps30'
+let storage = 'storymapDB'
 
 let defaultSlide = ({ id, loc, zoom }) => {
   let slide = {
@@ -596,6 +596,7 @@ export default {
     try {
       let maps = this.maps.slice()
       localStorage.setItem(storage, JSON.stringify(maps))
+      console.log(maps)
       this.sync()
     } catch (err) {
       console.log(err)
@@ -606,6 +607,7 @@ export default {
     gapi.signin2.render('google-signin-btn', {
       onSuccess: this.onSignIn
     })
+    this.zoomify()
     this.setMap()
   },
   methods: {
@@ -646,16 +648,16 @@ export default {
           console.log(err)
         })
     },
-    sync (status, index) {
+    sync (status = 'update', index, delId) {
+      let id = status === 'update' ? this.maps[index || this.selected.map].id : delId
       this.$http.patch('/storymap/api/sync', {
-        id: this.maps[index || this.selected.map].id,
-        maptype: this.maps[index || this.selected.map].maptype,
-        layer: this.maps[index || this.selected.map].layer,
-        slides: JSON.stringify(this.maps[index || this.selected.map].slides),
+        id,
+        ...status === 'update' ? { map: JSON.stringify(this.maps[index || this.selected.map]) } : {},
         status: status || 'update'
       }).then(res => {
         if (res.body.status === 'ok') {
           console.log('synced')
+          if (res.body.id) this.maps[index || this.selected.map].id = res.body.id
         } else {
           console.log(res)
         }
@@ -687,9 +689,15 @@ export default {
     addMap () {
       this.maps.push(defaultMap({
         id: this.uuid(),
-        slides: [ defaultSlide({
-          id: this.uuid()
-        }) ]
+        slides: [
+          defaultSlide({
+            id: this.uuid(),
+            loc: null
+          }),
+          defaultSlide({
+            id: this.uuid()
+          })
+        ]
       }))
       this.sync('update', this.maps.length - 1)
     },
@@ -700,15 +708,13 @@ export default {
     },
     delMap () {
       if (this.selected.del !== 0) {
-        if (this.selected.del === this.maps.lenght - 1 ||
-            this.selected.del === this.selected.map) {
-          this.selectMap(this.selected.map - 1)
-        }
-        this.maps.splice(this.selected.map, 1)
+        let id = this.maps[this.selected.del].id
+        this.selectMap(this.selected.del - 1)
+        this.maps.splice(this.selected.del, 1)
         this.selected.del = 0
         this.delMapMsg = false
         this.$nextTick(function () {
-          this.sync('delete')
+          this.sync('delete', null, id)
         })
       }
     },
@@ -917,10 +923,11 @@ export default {
       }
 
       if (nu <= 8) {
+        mapLayer = mapId ? mapLayer.replace('{id}', mapId) : mapLayer
         layer = L1.tileLayer(mapLayer, option)
         lmap.addLayer(layer)
 
-        this.maps[this.selected.map].layer = mapId ? mapLayer.replace('{id}', mapId) : mapLayer
+        this.maps[this.selected.map].layer = mapLayer
       } else if (nu === 9) {
         mapId = this.maps[this.selected.map].mapbox
         mapLayer = this.layer.mapbox.replace('{id}', mapId) + '?access_token=' + this.maps[this.selected.map].key
@@ -928,14 +935,6 @@ export default {
         layer = L1.tileLayer(mapLayer, option)
         lmap.addLayer(layer)
       } else if (nu === 10) {
-        layer = L1.tileLayer.zoomify(this.maps[this.selected.map].zoomify.path, {
-          width: this.maps[this.selected.map].zoomify.width,
-          height: this.maps[this.selected.map].zoomify.height,
-          tolerance: 0.8,
-          attribution: ''
-        })
-
-        lmap.addLayer(layer)
       }
 
       this.maps[this.selected.map].maptype = name
@@ -946,6 +945,8 @@ export default {
       console.log('maptype: ' + this.maps[this.selected.map].maptype)
       this.sync()
     },
+    zoomify () {
+    },
     setStoryMap () {
       let slides = []
 
@@ -955,15 +956,19 @@ export default {
         </div>`
       }
 
-      for (let i = 0; i < this.maps[this.selected.map].slides.length; i++) {
-        let s = this.maps[this.selected.map].slides[i]
+      let map = this.maps[this.selected.map]
+
+      for (let i = 0; i < map.slides.length; i++) {
+        let s = map.slides[i]
         let slide = {
           date: '',
           location: {
-            lat: s.loc[0],
-            lon: s.loc[1],
-            line: true,
-            zoom: s.zoom
+            ...s.loc ? {
+              lat: s.loc[0],
+              lon: s.loc[1],
+              zoom: s.zoom
+            } : {},
+            line: true
           },
           text: {
             headline: setStyle(s.headline, `font-family: "Helvetica", "Arial","LiHei Pro","黑體-繁","微軟正黑體", sans-serif; color: #000;`),
@@ -980,8 +985,13 @@ export default {
             opacity: 100
           }
         }
+
         if (i === 0) {
-          slide.overview = true
+          slide.type = 'overview'
+          delete slide.location.lat
+          delete slide.location.lon
+          delete slide.location.zoom
+          delete slide.media
         }
 
         if (s.marker) {
@@ -994,24 +1004,19 @@ export default {
       }
 
       console.log('setmap layer:' + this.maps[this.selected.map].layer)
-      let map = {
+      let mapData = {
+        calculate_zoom: false,
         storymap: {
-          maxZoom: 18,
-          minZoom: 9,
-          attribution: '',
           language: 'zh-tw',
-          call_to_action: true,
-          zoomify: true,
+          zoomify: false,
           map_type: this.maps[this.selected.map].layer,
-          call_to_action_text: '',
           map_as_image: false,
-          map_subdomains: '',
           slides: slides
         }
       }
-      console.log(map)
+      console.log(mapData)
 
-      let blob = new Blob([JSON.stringify(map)], { type: 'application/json' })
+      let blob = new Blob([JSON.stringify(mapData)], { type: 'application/json' })
       let url = URL.createObjectURL(blob)
 
       smap = new VCO.StoryMap('storymap', url, {})
