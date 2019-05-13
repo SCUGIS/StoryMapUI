@@ -178,7 +178,6 @@ router.get(config.addr + '/api/map/:id', (req, res) => {
           delete slide.location.lat
           delete slide.location.lon
           delete slide.location.zoom
-          delete slide.media
         }
 
         if (s.marker) {
