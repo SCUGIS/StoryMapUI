@@ -540,20 +540,20 @@ export default {
       }) ],
       maptype: [
         'Open Street Maps: Standard',
-        'Stamem Maps: Toner Lite',
-        'Stamem Maps: Toner',
-        'Stamem Maps: Toner Line',
-        'Stamem Maps: Toner Labels',
-        'Stamem Maps: Toner Background',
-        'Stamem Maps: Watercolor',
+        'Stamen Maps: Toner Lite',
+        'Stamen Maps: Toner',
+        'Stamen Maps: Toner Line',
+        'Stamen Maps: Toner Labels',
+        'Stamen Maps: Toner Background',
+        'Stamen Maps: Watercolor',
         'Wikimedia Maps',
         'Custom',
         'Mapbox',
         'Gigapixel'
       ],
       layer: {
-        osm: 'http://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        stamen: 'http://b.tile.stamen.com/{id}/{z}/{x}/{y}.png',
+        osm: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        stamen: 'https://stamen-tiles-c.a.ssl.fastly.net/{id}/{z}/{x}/{y}.png',
         wiki: 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png',
         mapbox: 'https://api.mapbox.com/styles/v1/{id}/tiles/256/{z}/{x}/{y}'
       },
